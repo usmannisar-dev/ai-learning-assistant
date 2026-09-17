@@ -1,4 +1,5 @@
 import fs from "fs/promises";
+import { CanvasFactory } from "pdf-parse/worker";
 import { PDFParse } from "pdf-parse";
 
 /**
@@ -13,6 +14,8 @@ import { PDFParse } from "pdf-parse";
  */
 
 export const extractTextFromPDF = async (filePath) => {
+  let parser;
+
   try {
     // ========================================
     // READ PDF FILE
@@ -24,19 +27,16 @@ export const extractTextFromPDF = async (filePath) => {
     // CREATE PDF PARSER
     // ========================================
 
-    const parser = new PDFParse(new Uint8Array(dataBuffer));
+    parser = new PDFParse({
+      data: new Uint8Array(dataBuffer),
+      CanvasFactory,
+    });
 
     // ========================================
     // EXTRACT TEXT
     // ========================================
 
     const data = await parser.getText();
-
-    // ========================================
-    // CLEANUP PARSER
-    // ========================================
-
-    await parser.destroy?.();
 
     // ========================================
     // RETURN
@@ -51,5 +51,13 @@ export const extractTextFromPDF = async (filePath) => {
     console.error("PDF Parsing Error:", error);
 
     throw new Error("Failed to extract text from PDF");
+  } finally {
+    // ========================================
+    // CLEANUP
+    // ========================================
+
+    if (parser) {
+      await parser.destroy?.();
+    }
   }
 };
