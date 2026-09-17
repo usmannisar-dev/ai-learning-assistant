@@ -12,39 +12,25 @@ import { PDFParse } from "pdf-parse";
  *   info?: object
  * }>}
  */
-
 export const extractTextFromPDF = async (filePath) => {
   let parser;
 
   try {
-    // ========================================
-    // READ PDF FILE
-    // ========================================
-
+    // Read PDF file
     const dataBuffer = await fs.readFile(filePath);
 
-    // ========================================
-    // CREATE PDF PARSER
-    // ========================================
-
+    // Create PDF parser
     parser = new PDFParse({
       data: new Uint8Array(dataBuffer),
       CanvasFactory,
     });
 
-    // ========================================
-    // EXTRACT TEXT
-    // ========================================
-
+    // Extract text
     const data = await parser.getText();
-
-    // ========================================
-    // RETURN
-    // ========================================
 
     return {
       text: data.text || "",
-      numPages: data.numPages || 0,
+      numPages: data.total || data.numPages || 0,
       info: data.info || {},
     };
   } catch (error) {
@@ -52,12 +38,9 @@ export const extractTextFromPDF = async (filePath) => {
 
     throw new Error("Failed to extract text from PDF");
   } finally {
-    // ========================================
-    // CLEANUP
-    // ========================================
-
+    // Always clean up the parser
     if (parser) {
-      await parser.destroy?.();
+      await parser.destroy().catch(() => {});
     }
   }
 };
