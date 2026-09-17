@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import { put, del } from "@vercel/blob";
 
 import Document from "../models/Document.js";
 import Flashcard from "../models/Flashcard.js";
@@ -62,11 +63,27 @@ export const uploadDocument = async (req, res, next) => {
       });
     }
 
+    // // ========================================
+    // // BUILD PUBLIC FILE URL
+    // // ========================================
+    // const fileUrl = `/uploads/documents/${req.file.filename}`;
+
     // ========================================
-    // BUILD PUBLIC FILE URL
+    // UPLOAD PDF TO VERCEL BLOB
     // ========================================
 
-    const fileUrl = `/uploads/documents/${req.file.filename}`;
+    const fileBuffer = await fs.readFile(req.file.path);
+
+    const blob = await put(
+      `documents/${Date.now()}-${req.file.originalname}`,
+      fileBuffer,
+      {
+        access: "public",
+        contentType: "application/pdf",
+      },
+    );
+
+    const fileUrl = blob.url;
 
     // ========================================
     // CREATE DOCUMENT
@@ -513,15 +530,25 @@ export const deleteDocument = async (req, res, next) => {
     // DELETE PHYSICAL PDF FILE
     // ========================================
 
-    if (document.filePath) {
-      const fileName = path.basename(document.filePath);
+    // if (document.filePath) {
+    //   const fileName = path.basename(document.filePath);
 
-      const physicalPath = path.join(uploadDir, fileName);
+    //   const physicalPath = path.join(uploadDir, fileName);
 
-      await fs.unlink(physicalPath).catch((error) => {
-        if (error.code !== "ENOENT") {
-          console.error("Error deleting physical file:", error);
-        }
+    //   await fs.unlink(physicalPath).catch((error) => {
+    //     if (error.code !== "ENOENT") {
+    //       console.error("Error deleting physical file:", error);
+    //     }
+    //   });
+    // }
+
+    // ========================================
+    // DELETE PDF FROM VERCEL BLOB
+    // ========================================
+
+    if (document.filePath && document.filePath.startsWith("http")) {
+      await del(document.filePath).catch((error) => {
+        console.error("Error deleting Blob file:", error);
       });
     }
 

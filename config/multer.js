@@ -1,6 +1,7 @@
 import multer from "multer";
 import path from "path";
 import os from "os";
+import fs from "fs";
 
 // ========================================
 // UPLOAD DIRECTORY
@@ -16,6 +17,11 @@ const uploadDir = process.env.VERCEL
   ? path.join(os.tmpdir(), "ai-learning-uploads")
   : path.join(process.cwd(), "uploads", "documents");
 
+// Create the temporary directory on Vercel
+if (process.env.VERCEL) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 // ========================================
 // STORAGE
 // ========================================
@@ -26,8 +32,7 @@ const storage = multer.diskStorage({
   },
 
   filename: (req, file, cb) => {
-    const uniqueSuffix =
-      Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
 
     const extension = path.extname(file.originalname);
 
@@ -57,9 +62,7 @@ const upload = multer({
   fileFilter,
 
   limits: {
-    fileSize:
-      parseInt(process.env.MAX_FILE_SIZE, 10) ||
-      10 * 1024 * 1024,
+    fileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024,
   },
 });
 
