@@ -1,5 +1,19 @@
+// ============================================================
+// MONGODB DATABASE CONNECTION
+// ============================================================
+
 import dns from "node:dns";
 import mongoose from "mongoose";
+
+// ============================================================
+// MONGODB CONNECTION CACHE
+// ============================================================
+
+let cachedConnection = null;
+
+// ============================================================
+// CONFIGURE MONGODB DNS SERVERS
+// ============================================================
 
 const configureMongoDns = () => {
   const dnsServers = process.env.MONGODB_DNS_SERVERS?.split(",")
@@ -11,17 +25,47 @@ const configureMongoDns = () => {
   }
 };
 
+// ============================================================
+// GET MONGODB URI
+// ============================================================
+
 const getMongoUri = () => {
   const uri = process.env.MONGODB_URI?.trim();
 
   if (!uri) {
-    throw new Error("MONGODB_URI is missing from your .env file");
+    throw new Error("MONGODB_URI is missing from environment variables.");
   }
 
   return uri;
 };
 
+// ============================================================
+// CONNECT TO MONGODB
+// ============================================================
+
 const connectDB = async () => {
+  // ==========================================================
+  // USE EXISTING CACHED CONNECTION
+  // ==========================================================
+
+  if (cachedConnection) {
+    return cachedConnection;
+  }
+
+  // ==========================================================
+  // CHECK IF MONGOOSE IS ALREADY CONNECTED
+  // ==========================================================
+
+  if (mongoose.connection.readyState === 1) {
+    cachedConnection = mongoose.connection;
+
+    return cachedConnection;
+  }
+
+  // ==========================================================
+  // CONNECT TO MONGODB
+  // ==========================================================
+
   try {
     configureMongoDns();
 
@@ -29,24 +73,51 @@ const connectDB = async () => {
       serverSelectionTimeoutMS: 10000,
     });
 
+    cachedConnection = conn.connection;
+
     console.log(`MongoDB connected: ${conn.connection.host}`);
+
+    return cachedConnection;
   } catch (error) {
-    console.error(`Error connecting to MongoDB: ${error.message}`);
+    // ========================================================
+    // LOG DATABASE ERROR
+    // ========================================================
+
+    console.error(`MongoDB connection error: ${error.message}`);
+
+    // ========================================================
+    // DNS ERROR
+    // ========================================================
 
     if (error.message.includes("querySrv")) {
       console.error(
-        "MongoDB SRV DNS lookup failed. Check MONGODB_DNS_SERVERS or your system DNS settings.",
+        "MongoDB SRV DNS lookup failed. Check MongoDB Atlas DNS/network settings.",
       );
     }
 
-    if (error.message.includes("bad auth")) {
+    // ========================================================
+    // AUTHENTICATION ERROR
+    // ========================================================
+
+    if (error.message.toLowerCase().includes("bad auth")) {
       console.error(
-        "MongoDB Atlas rejected the credentials. Check the database username/password in MONGODB_URI.",
+        "MongoDB Atlas rejected the credentials. Check your MongoDB username and password.",
       );
     }
 
-    process.exit(1);
+    // ========================================================
+    // IMPORTANT:
+    // DO NOT USE process.exit() HERE.
+    // VERCEL SERVERLESS FUNCTIONS SHOULD NOT TERMINATE
+    // THE ENTIRE PROCESS WHEN A DATABASE REQUEST FAILS.
+    // ========================================================
+
+    throw error;
   }
 };
+
+// ============================================================
+// EXPORT
+// ============================================================
 
 export default connectDB;

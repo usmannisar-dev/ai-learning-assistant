@@ -1,12 +1,33 @@
+// ============================================================
+// LOAD ENVIRONMENT VARIABLES
+// ============================================================
+
 import "dotenv/config";
+
+// ============================================================
+// IMPORT PACKAGES
+// ============================================================
 
 import express from "express";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// ============================================================
+// IMPORT MIDDLEWARE
+// ============================================================
+
 import errorHandler from "./middleware/errorHandler.js";
+
+// ============================================================
+// IMPORT DATABASE
+// ============================================================
+
 import connectDB from "./config/db.js";
+
+// ============================================================
+// IMPORT ROUTES
+// ============================================================
 
 import authRoutes from "./routes/authRoutes.js";
 import documentRoutes from "./routes/documentRoutes.js";
@@ -15,28 +36,28 @@ import flashcardRoutes from "./routes/flashcardRoutes.js";
 import progressRoutes from "./routes/progressRoute.js";
 import quizRoutes from "./routes/quizRoutes.js";
 
-// ========================================
+// ============================================================
 // ES MODULE __dirname
-// ========================================
+// ============================================================
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ========================================
+// ============================================================
 // EXPRESS APP
-// ========================================
+// ============================================================
 
 const app = express();
 
-// ========================================
+// ============================================================
 // CORS
-// ========================================
+// ============================================================
 
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
 
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 
     allowedHeaders: ["Content-Type", "Authorization"],
 
@@ -44,9 +65,9 @@ app.use(
   }),
 );
 
-// ========================================
+// ============================================================
 // BODY PARSER
-// ========================================
+// ============================================================
 
 app.use(express.json());
 
@@ -56,15 +77,18 @@ app.use(
   }),
 );
 
-// ========================================
+// ============================================================
 // STATIC UPLOADS
-// ========================================
+// ============================================================
+
+// LOCAL DEVELOPMENT ONLY FOR NOW.
+// WE WILL MOVE PDF STORAGE TO CLOUD STORAGE.
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// ========================================
+// ============================================================
 // HEALTH CHECK
-// ========================================
+// ============================================================
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -74,9 +98,33 @@ app.get("/", (req, res) => {
   });
 });
 
-// ========================================
-// ROUTES
-// ========================================
+// ============================================================
+// DATABASE CONNECTION
+// ============================================================
+
+// CONNECT TO MONGODB BEFORE API REQUESTS.
+//
+// IMPORTANT:
+// YOUR connectDB() FUNCTION USES A CONNECTION CACHE,
+// SO WARM VERCEL INSTANCES CAN REUSE THE CONNECTION.
+
+app.use(async (req, res, next) => {
+  // SKIP DATABASE CONNECTION FOR THE HEALTH CHECK.
+  if (req.path === "/") {
+    return next();
+  }
+
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================
+// API ROUTES
+// ============================================================
 
 app.use("/api/auth", authRoutes);
 
@@ -90,9 +138,9 @@ app.use("/api/progress", progressRoutes);
 
 app.use("/api/quizzes", quizRoutes);
 
-// ========================================
-// 404
-// ========================================
+// ============================================================
+// 404 ROUTE
+// ============================================================
 
 app.use((req, res) => {
   res.status(404).json({
@@ -102,58 +150,50 @@ app.use((req, res) => {
   });
 });
 
-// ========================================
+// ============================================================
 // GLOBAL ERROR HANDLER
-// ========================================
+// ============================================================
 
 app.use(errorHandler);
 
-// ========================================
-// PORT
-// ========================================
+// ============================================================
+// LOCAL DEVELOPMENT SERVER
+// ============================================================
 
-const PORT = Number(process.env.PORT) || 8000;
+// VERCEL DOES NOT USE app.listen().
+//
+// LOCALLY:
+// npm run dev
+//
+// VERCEL:
+// EXPORTS THE EXPRESS APP.
 
-// ========================================
-// START SERVER
-// ========================================
+if (!process.env.VERCEL) {
+  const PORT = Number(process.env.PORT) || 8000;
 
-const startServer = async () => {
-  try {
-    await connectDB();
+  const startServer = async () => {
+    try {
+      await connectDB();
 
-    app.listen(PORT, () => {
-      console.log(
-        `Server running in ${process.env.NODE_ENV || "development"} mode`,
-      );
+      app.listen(PORT, () => {
+        console.log(
+          `Server running in ${process.env.NODE_ENV || "development"} mode`,
+        );
 
-      console.log(`API: http://localhost:${PORT}`);
-    });
-  } catch (error) {
-    console.error(`Failed to start server: ${error.message}`);
+        console.log(`API: http://localhost:${PORT}`);
+      });
+    } catch (error) {
+      console.error(`Failed to start server: ${error.message}`);
 
-    process.exit(1);
-  }
-};
+      process.exit(1);
+    }
+  };
 
-startServer();
+  startServer();
+}
 
-// ========================================
-// UNHANDLED PROMISE REJECTION
-// ========================================
+// ============================================================
+// EXPORT EXPRESS APP FOR VERCEL
+// ============================================================
 
-process.on("unhandledRejection", (error) => {
-  console.error("Unhandled Promise Rejection:", error);
-
-  process.exit(1);
-});
-
-// ========================================
-// UNCAUGHT EXCEPTION
-// ========================================
-
-process.on("uncaughtException", (error) => {
-  console.error("Uncaught Exception:", error);
-
-  process.exit(1);
-});
+export default app;
