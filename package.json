@@ -16,7 +16,7 @@
   "license": "ISC",
   "dependencies": {
     "@google/genai": "^2.22.0",
-    "@napi-rs/canvas": "...",
+    "@napi-rs/canvas": "file:...",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
