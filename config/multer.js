@@ -1,27 +1,20 @@
 import multer from "multer";
 import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs";
-
-const __filename = fileURLToPath(import.meta.url);
-
-const __dirname = path.dirname(__filename);
+import os from "os";
 
 // ========================================
 // UPLOAD DIRECTORY
 // ========================================
+//
+// Vercel Functions cannot write to the deployed
+// application directory.
+//
+// /tmp is writable during a serverless invocation.
+//
 
-const uploadDir = path.join(__dirname, "../uploads/documents");
-
-// ========================================
-// CREATE DIRECTORY
-// ========================================
-
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, {
-    recursive: true,
-  });
-}
+const uploadDir = process.env.VERCEL
+  ? path.join(os.tmpdir(), "ai-learning-uploads")
+  : path.join(process.cwd(), "uploads", "documents");
 
 // ========================================
 // STORAGE
@@ -33,7 +26,8 @@ const storage = multer.diskStorage({
   },
 
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const uniqueSuffix =
+      Date.now() + "-" + Math.round(Math.random() * 1e9);
 
     const extension = path.extname(file.originalname);
 
@@ -63,7 +57,9 @@ const upload = multer({
   fileFilter,
 
   limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10 * 1024 * 1024,
+    fileSize:
+      parseInt(process.env.MAX_FILE_SIZE, 10) ||
+      10 * 1024 * 1024,
   },
 });
 
